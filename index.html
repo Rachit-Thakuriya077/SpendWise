@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpendWise — Modern Expense Tracker & Financial Dashboard</title>
+  <meta name="description" content="A modern, high-performance React Expense Tracker with real-time balance calculations, category analytics, interactive charts, and local persistence." />
+  
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f5ff',
+              100: '#e5edff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            darkBg: '#090d16',
+            darkCard: '#111726',
+            darkBorder: 'rgba(255, 255, 255, 0.08)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18, ReactDOM & Babel for zero-build execution -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom Scrollbar & Smooth Animations */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.5);
+    }
+
+    .glass-card {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card-light {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+    }
+
+    html:not(.dark) ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    html:not(.dark) ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+    }
+
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+
+  <div id="root"></div>
+
+  <!-- Main Application Script -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- CATEGORIES DEFINITION ---
+    const EXPENSE_CATEGORIES = [
+      { id: 'food', name: 'Food & Dining', icon: 'utensils', color: '#ea580c', bgLight: 'bg-orange-50 text-orange-700 border border-orange-200', bgDark: 'bg-orange-500/15 text-orange-400 border border-orange-500/20' },
+      { id: 'housing', name: 'Housing & Rent', icon: 'home', color: '#2563eb', bgLight: 'bg-blue-50 text-blue-700 border border-blue-200', bgDark: 'bg-blue-500/15 text-blue-400 border border-blue-500/20' },
+      { id: 'transport', name: 'Transportation', icon: 'car', color: '#9333ea', bgLight: 'bg-purple-50 text-purple-700 border border-purple-200', bgDark: 'bg-purple-500/15 text-purple-400 border border-purple-500/20' },
+      { id: 'shopping', name: 'Shopping', icon: 'shopping-bag', color: '#db2777', bgLight: 'bg-pink-50 text-pink-700 border border-pink-200', bgDark: 'bg-pink-500/15 text-pink-400 border border-pink-500/20' },
+      { id: 'entertainment', name: 'Entertainment', icon: 'film', color: '#d97706', bgLight: 'bg-amber-50 text-amber-700 border border-amber-200', bgDark: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20' },
+      { id: 'health', name: 'Health & Medical', icon: 'activity', color: '#059669', bgLight: 'bg-emerald-50 text-emerald-700 border border-emerald-200', bgDark: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' },
+      { id: 'utilities', name: 'Bills & Utilities', icon: 'zap', color: '#0891b2', bgLight: 'bg-cyan-50 text-cyan-700 border border-cyan-200', bgDark: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' },
+      { id: 'education', name: 'Education', icon: 'graduation-cap', color: '#4f46e5', bgLight: 'bg-indigo-50 text-indigo-700 border border-indigo-200', bgDark: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20' },
+      { id: 'other_expense', name: 'Other Expense', icon: 'more-horizontal', color: '#475569', bgLight: 'bg-slate-100 text-slate-700 border border-slate-200', bgDark: 'bg-slate-500/15 text-slate-400 border border-slate-500/20' }
+    ];
+
+    const INCOME_CATEGORIES = [
+      { id: 'salary', name: 'Salary & Stipend', icon: 'briefcase', color: '#059669', bgLight: 'bg-emerald-50 text-emerald-700 border border-emerald-200', bgDark: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' },
+      { id: 'freelance', name: 'Freelance & Side Hustle', icon: 'laptop', color: '#0891b2', bgLight: 'bg-cyan-50 text-cyan-700 border border-cyan-200', bgDark: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' },
+      { id: 'investments', name: 'Investments & Dividends', icon: 'trending-up', color: '#7c3aed', bgLight: 'bg-violet-50 text-violet-700 border border-violet-200', bgDark: 'bg-violet-500/15 text-violet-400 border border-violet-500/20' },
+      { id: 'gifts', name: 'Gifts & Awards', icon: 'gift', color: '#e11d48', bgLight: 'bg-rose-50 text-rose-700 border border-rose-200', bgDark: 'bg-rose-500/15 text-rose-400 border border-rose-500/20' },
+      { id: 'other_income', name: 'Other Income', icon: 'plus-circle', color: '#0d9488', bgLight: 'bg-teal-50 text-teal-700 border border-teal-200', bgDark: 'bg-teal-500/15 text-teal-400 border border-teal-500/20' }
+    ];
+
+    // Seed Sample Transactions (INR Calibrated)
+    const INITIAL_DATA = [
+      { id: 'tx-1', title: 'Tech Internship Monthly Stipend', amount: 35000, type: 'income', category: 'salary', date: '2026-10-01', notes: 'Google Summer / ACM Fellowship stipend' },
+      { id: 'tx-2', title: 'Student Apartment Monthly Rent', amount: 12500, type: 'expense', category: 'housing', date: '2026-10-03', notes: 'October rent with flatmates' },
+      { id: 'tx-3', title: 'Freelance Frontend Web Design', amount: 18000, type: 'income', category: 'freelance', date: '2026-10-06', notes: 'Client React landing page milestone' },
+      { id: 'tx-4', title: 'Weekly Grocery & Supermarket', amount: 3450, type: 'expense', category: 'food', date: '2026-10-08', notes: 'Weekly grocery, fruits and veggies' },
+      { id: 'tx-5', title: 'High-Speed Wi-Fi & Airtel Plan', amount: 999, type: 'expense', category: 'utilities', date: '2026-10-10', notes: 'Unlimited fiber 200 Mbps broadband' },
+      { id: 'tx-6', title: 'Mechanical Keyboard for Coding', amount: 4500, type: 'expense', category: 'shopping', date: '2026-10-12', notes: 'Keychron wireless mechanical keyboard' },
+      { id: 'tx-7', title: 'Mutual Fund SIP & Stock Dividend', amount: 5000, type: 'income', category: 'investments', date: '2026-10-15', notes: 'Nifty 50 Index Fund monthly returns' },
+      { id: 'tx-8', title: 'ACM Hackathon Team Dinner', amount: 1450, type: 'expense', category: 'food', date: '2026-10-17', notes: 'Celebration dinner with hackathon teammates' },
+      { id: 'tx-9', title: 'Metro Transit Card Recharge', amount: 800, type: 'expense', category: 'transport', date: '2026-10-19', notes: 'Monthly student metro card reload' },
+      { id: 'tx-10', title: 'Hotstar & Spotify Subscriptions', amount: 499, type: 'expense', category: 'entertainment', date: '2026-10-20', notes: 'Student annual plan' }
+    ];
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      // Currency state (Defaulted to Indian Rupees ₹)
+      const [currency, setCurrency] = useState(() => {
+        return localStorage.getItem('spendwise_currency') || '₹';
+      });
+
+      useEffect(() => {
+        localStorage.setItem('spendwise_currency', currency);
+      }, [currency]);
+
+      // Dark / Light Theme
+      const [isDark, setIsDark] = useState(() => {
+        return localStorage.getItem('spendwise_theme') !== 'light';
+      });
+
+      useEffect(() => {
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.body.className = "bg-[#0b0f19] text-slate-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200";
+          localStorage.setItem('spendwise_theme', 'dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.body.className = "bg-slate-50 text-slate-800 min-h-screen antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200";
+          localStorage.setItem('spendwise_theme', 'light');
+        }
+      }, [isDark]);
+
+      // Transactions State
+      const [transactions, setTransactions] = useState(() => {
+        try {
+          const local = localStorage.getItem('spendwise_transactions');
+          return local ? JSON.parse(local) : INITIAL_DATA;
+        } catch (e) {
+          return INITIAL_DATA;
+        }
+      });
+
+      // LocalStorage persistence
+      useEffect(() => {
+        localStorage.setItem('spendwise_transactions', JSON.stringify(transactions));
+        // Refresh icons whenever DOM updates
+        setTimeout(() => {
+          if (window.lucide) window.lucide.createIcons();
+        }, 50);
+      }, [transactions]);
+
+      // Filters & Search State
+      const [searchQuery, setSearchQuery] = useState('');
+      const [typeFilter, setTypeFilter] = useState('all'); // all, income, expense
+      const [categoryFilter, setCategoryFilter] = useState('all');
+      const [timeFilter, setTimeFilter] = useState('all'); // all, this_month, last_month
+      const [sortBy, setSortBy] = useState('date_desc'); // date_desc, date_asc, amount_desc, amount_asc
+
+      // Chart Tab State
+      const [activeChartTab, setActiveChartTab] = useState('category'); // 'category' | 'trend'
+
+      // Modal State
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editingTx, setEditingTx] = useState(null);
+
+      // Toast Notification
+      const [toast, setToast] = useState(null);
+      const triggerToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      // CRUD Functions
+      const handleSaveTransaction = (formData) => {
+        if (editingTx) {
+          setTransactions(prev =>
+            prev.map(t => (t.id === editingTx.id ? { ...formData, id: editingTx.id } : t))
+          );
+          triggerToast(`Updated "${formData.title}"`, 'success');
+        } else {
+          const newTx = {
+            ...formData,
+            id: 'tx-' + Date.now() + '-' + Math.floor(Math.random() * 1000)
+          };
+          setTransactions(prev => [newTx, ...prev]);
+          triggerToast(`Added "${formData.title}"`, 'success');
+        }
+        setIsModalOpen(false);
+        setEditingTx(null);
+      };
+
+      const handleDelete = (id) => {
+        const item = transactions.find(t => t.id === id);
+        if (window.confirm(`Delete "${item ? item.title : 'this transaction'}"?`)) {
+          setTransactions(prev => prev.filter(t => t.id !== id));
+          triggerToast(`Deleted transaction`, 'info');
+        }
+      };
+
+      const handleResetSample = () => {
+        if (window.confirm('Reset all transactions to default sample data?')) {
+          setTransactions(INITIAL_DATA);
+          triggerToast('Reset to default sample data', 'info');
+        }
+      };
+
+      const handleClearAll = () => {
+        if (window.confirm('Warning: This will wipe all current transactions. Continue?')) {
+          setTransactions([]);
+          triggerToast('All transaction records cleared', 'info');
+        }
+      };
+
+      // Export CSV
+      const handleExportCSV = () => {
+        if (transactions.length === 0) {
+          triggerToast('No data to export', 'error');
+          return;
+        }
+        const headers = ['ID,Title,Type,Category,Amount,Date,Notes'];
+        const rows = transactions.map(t => [
+          t.id,
+          `"${t.title.replace(/"/g, '""')}"`,
+          t.type,
+          t.category,
+          t.amount,
+          t.date,
+          `"${(t.notes || '').replace(/"/g, '""')}"`
+        ].join(','));
+        const blob = new Blob([[headers, ...rows].join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SpendWise_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        triggerToast('Exported CSV file successfully!', 'success');
+      };
+
+      // Filtered Transactions
+      const filteredTransactions = useMemo(() => {
+        const now = new Date();
+        const curYear = now.getFullYear();
+        const curMonth = now.getMonth();
+
+        return transactions
+          .filter(t => {
+            // Search
+            if (searchQuery.trim()) {
+              const q = searchQuery.toLowerCase();
+              const mTitle = t.title.toLowerCase().includes(q);
+              const mNotes = (t.notes || '').toLowerCase().includes(q);
+              const mCat = t.category.toLowerCase().includes(q);
+              if (!mTitle && !mNotes && !mCat) return false;
+            }
+            // Type filter
+            if (typeFilter !== 'all' && t.type !== typeFilter) return false;
+            // Category filter
+            if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+            // Time filter
+            if (timeFilter !== 'all') {
+              const d = new Date(t.date);
+              const y = d.getFullYear();
+              const m = d.getMonth();
+              if (timeFilter === 'this_month') {
+                if (y !== curYear || m !== curMonth) return false;
+              } else if (timeFilter === 'last_month') {
+                const targetM = curMonth === 0 ? 11 : curMonth - 1;
+                const targetY = curMonth === 0 ? curYear - 1 : curYear;
+                if (y !== targetY || m !== targetM) return false;
+              }
+            }
+            return true;
+          })
+          .sort((a, b) => {
+            if (sortBy === 'date_desc') return new Date(b.date) - new Date(a.date);
+            if (sortBy === 'date_asc') return new Date(a.date) - new Date(b.date);
+            if (sortBy === 'amount_desc') return Number(b.amount) - Number(a.amount);
+            if (sortBy === 'amount_asc') return Number(a.amount) - Number(b.amount);
+            return 0;
+          });
+      }, [transactions, searchQuery, typeFilter, categoryFilter, timeFilter, sortBy]);
+
+      // Metrics & Totals
+      const metrics = useMemo(() => {
+        let income = 0;
+        let expense = 0;
+        transactions.forEach(t => {
+          const amt = Number(t.amount) || 0;
+          if (t.type === 'income') income += amt;
+          else expense += amt;
+        });
+        const balance = income - expense;
+        const savingsRate = income > 0 ? Math.max(0, Math.round(((income - expense) / income) * 100)) : 0;
+        return { income, expense, balance, savingsRate, count: transactions.length };
+      }, [transactions]);
+
+      // Category Analytics
+      const categoryBreakdown = useMemo(() => {
+        const map = {};
+        transactions.filter(t => t.type === 'expense').forEach(t => {
+          map[t.category] = (map[t.category] || 0) + Number(t.amount);
+        });
+        const list = Object.entries(map).map(([catId, amount]) => {
+          const cat = EXPENSE_CATEGORIES.find(c => c.id === catId) || { name: catId, color: '#94a3b8' };
+          const percentage = metrics.expense > 0 ? Math.round((amount / metrics.expense) * 100) : 0;
+          return { id: catId, name: cat.name, color: cat.color, amount, percentage };
+        }).sort((a, b) => b.amount - a.amount);
+
+        const topCat = list[0] || null;
+        return { list, topCat };
+      }, [transactions, metrics.expense]);
+
+      // Format currency with Indian / International number grouping
+      const formatAmount = (num) => {
+        const locale = currency === '₹' ? 'en-IN' : 'en-US';
+        return `${currency}${Number(num).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      };
+
+      // Helper for category metadata
+      const getCategoryMeta = (catId, type) => {
+        const pool = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+        return pool.find(c => c.id === catId) || { name: catId, icon: 'tag', color: '#64748b', bgDark: 'bg-slate-700/20 text-slate-300', bgLight: 'bg-slate-100 text-slate-700' };
+      };
+
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans">
+          
+          {/* --- TOP NAVBAR --- */}
+          <header className={`sticky top-0 z-30 border-b backdrop-blur-md transition-colors ${
+            isDark ? 'bg-[#0b0f19]/80 border-slate-800/80 text-white' : 'bg-white/80 border-slate-200 text-slate-800'
+          }`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              
+              {/* Brand Logo & Title */}
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                  <i data-lucide="wallet" className="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                      SpendWise
+                    </span>
+                    <span className="hidden sm:inline-block text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 tracking-wider">
+                      React Pro
+                    </span>
+                  </div>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    ACM Recruitment Task 1
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions & Controls */}
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                
+                {/* Currency Selector */}
+                <div className={`flex items-center rounded-lg border px-2 py-1 text-xs font-semibold ${
+                  isDark ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                }`}>
+                  <span className="mr-1 text-slate-400 hidden sm:inline">Currency:</span>
+                  <select 
+                    value={currency} 
+                    onChange={e => setCurrency(e.target.value)}
+                    className="bg-transparent font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="₹" className="text-slate-900">₹ INR (Rupees)</option>
+                    <option value="$" className="text-slate-900">$ USD</option>
+                    <option value="€" className="text-slate-900">€ EUR</option>
+                    <option value="£" className="text-slate-900">£ GBP</option>
+                  </select>
+                </div>
+
+                {/* Dark / Light Toggle */}
+                <button
+                  onClick={() => setIsDark(!isDark)}
+                  title="Toggle Dark/Light Mode"
+                  className={`p-2 rounded-lg border transition-colors ${
+                    isDark 
+                      ? 'bg-slate-800/60 border-slate-700 text-yellow-400 hover:bg-slate-800' 
+                      : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <i data-lucide={isDark ? "sun" : "moon"} className="w-4 h-4"></i>
+                </button>
+
+                {/* Export CSV Button */}
+                <button
+                  onClick={handleExportCSV}
+                  title="Export Transactions as CSV"
+                  className={`hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    isDark ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-700 text-slate-200' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm'
+                  }`}
+                >
+                  <i data-lucide="download" className="w-3.5 h-3.5 text-indigo-400"></i>
+                  <span>Export</span>
+                </button>
+
+                {/* Add Transaction Button */}
+                <button
+                  onClick={() => {
+                    setEditingTx(null);
+                    setIsModalOpen(true);
+                  }}
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <i data-lucide="plus" className="w-4 h-4"></i>
+                  <span>New Transaction</span>
+                </button>
+              </div>
+
+            </div>
+          </header>
+
+          {/* --- MAIN BODY --- */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+            
+            {/* --- HERO METRICS SECTION --- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Total Balance Card */}
+              <div className={`p-5 rounded-2xl relative overflow-hidden transition-all duration-200 ${
+                isDark ? 'glass-card shadow-lg' : 'glass-card-light'
+              }`}>
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Net Balance
+                  </span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    metrics.balance >= 0 
+                      ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60') 
+                      : (isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700 border border-rose-200/60')
+                  }`}>
+                    <i data-lucide="wallet-cards" className="w-4 h-4"></i>
+                  </div>
+                </div>
+                <div className="flex items-baseline space-x-2">
+                  <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
+                    metrics.balance >= 0 ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-rose-400' : 'text-rose-600')
+                  }`}>
+                    {formatAmount(metrics.balance)}
+                  </h2>
+                </div>
+                <div className="mt-3 flex items-center text-xs font-medium space-x-1.5">
+                  <span className={`px-2 py-0.5 rounded-md font-semibold ${
+                    metrics.balance >= 0 
+                      ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80') 
+                      : (isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700 border border-rose-200/80')
+                  }`}>
+                    {metrics.balance >= 0 ? 'Positive Cashflow' : 'Deficit Alert'}
+                  </span>
+                  <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+                    • {metrics.count} records
+                  </span>
+                </div>
+              </div>
+
+              {/* Total Income Card */}
+              <div className={`p-5 rounded-2xl relative overflow-hidden transition-all duration-200 ${
+                isDark ? 'glass-card shadow-lg' : 'glass-card-light'
+              }`}>
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Total Income
+                  </span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                  }`}>
+                    <i data-lucide="arrow-down-left" className="w-4 h-4"></i>
+                  </div>
+                </div>
+                <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
+                  isDark ? 'text-emerald-400' : 'text-emerald-600'
+                }`}>
+                  +{formatAmount(metrics.income)}
+                </h2>
+                <div className="mt-3 flex items-center text-xs font-medium space-x-1">
+                  <span className={`font-semibold flex items-center ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                    <i data-lucide="trending-up" className="w-3.5 h-3.5 mr-1"></i> Inflows
+                  </span>
+                  <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>active this period</span>
+                </div>
+              </div>
+
+              {/* Total Expenses Card */}
+              <div className={`p-5 rounded-2xl relative overflow-hidden transition-all duration-200 ${
+                isDark ? 'glass-card shadow-lg' : 'glass-card-light'
+              }`}>
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Total Expenses
+                  </span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                  }`}>
+                    <i data-lucide="arrow-up-right" className="w-4 h-4"></i>
+                  </div>
+                </div>
+                <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
+                  isDark ? 'text-rose-400' : 'text-rose-600'
+                }`}>
+                  -{formatAmount(metrics.expense)}
+                </h2>
+                <div className="mt-3 flex items-center text-xs font-medium space-x-1">
+                  <span className={`font-semibold flex items-center ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
+                    <i data-lucide="trending-down" className="w-3.5 h-3.5 mr-1"></i> Outflows
+                  </span>
+                  <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+                    {categoryBreakdown.topCat ? `• Top: ${categoryBreakdown.topCat.name}` : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Savings Rate Card */}
+              <div className={`p-5 rounded-2xl relative overflow-hidden transition-all duration-200 ${
+                isDark ? 'glass-card shadow-lg' : 'glass-card-light'
+              }`}>
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Savings Rate
+                  </span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-700 border border-purple-200/60'
+                  }`}>
+                    <i data-lucide="pie-chart" className="w-4 h-4"></i>
+                  </div>
+                </div>
+                <div className="flex items-baseline space-x-2">
+                  <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
+                    isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    {metrics.savingsRate}%
+                  </h2>
+                  <span className={`text-xs font-semibold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
+                    of income saved
+                  </span>
+                </div>
+                {/* Progress bar */}
+                <div className={`mt-3 w-full rounded-full h-2 overflow-hidden ${
+                  isDark ? 'bg-slate-700/30' : 'bg-slate-100 border border-slate-200/50'
+                }`}>
+                  <div 
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, Math.max(0, metrics.savingsRate))}%` }}
+                  ></div>
+                </div>
+              </div>            {/* --- CHARTS & MONTHLY SUMMARY (BONUS FEATURE) --- */}
+            <div className={`p-6 rounded-2xl transition-all ${
+              isDark ? 'glass-card shadow-lg' : 'glass-card-light'
+            }`}>
+              
+              {/* Header and View Selector */}
+              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b ${
+                isDark ? 'border-slate-700/40' : 'border-slate-100'
+              }`}>
+                <div>
+                  <h3 className={`text-lg font-bold flex items-center space-x-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    <i data-lucide="bar-chart-3" className={`w-5 h-5 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}></i>
+                    <span>Financial Analytics & Insights</span>
+                    <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                      isDark 
+                        ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-400 border border-indigo-500/30' 
+                        : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                    }`}>
+                      Bonus Feature
+                    </span>
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Real-time category spending breakdown and visual cashflow distribution
+                  </p>
+                </div>
+
+                {/* Tabs: Category vs Trend */}
+                <div className={`flex rounded-xl p-1 border text-xs font-semibold ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+                }`}>
+                  <button
+                    onClick={() => setActiveChartTab('category')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      activeChartTab === 'category'
+                        ? isDark ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm font-bold border border-slate-200/60'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Category Breakdown
+                  </button>
+                  <button
+                    onClick={() => setActiveChartTab('trend')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      activeChartTab === 'trend'
+                        ? isDark ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm font-bold border border-slate-200/60'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Income vs Expense
+                  </button>
+                </div>
+              </div>
+
+              {/* Chart Content Area */}
+              <div className="mt-6">
+                {activeChartTab === 'category' ? (
+                  // Category Breakdown Chart
+                  <div>
+                    {categoryBreakdown.list.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        No expense records found to generate category charts. Add an expense transaction to view insights!
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                        
+                        {/* Interactive SVG Donut Chart */}
+                        <div className="md:col-span-5 flex flex-col items-center justify-center">
+                          <div className="relative w-48 h-48 sm:w-56 sm:h-56">
+                            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                              {(() => {
+                                let accumulatedPercent = 0;
+                                return categoryBreakdown.list.map((item, idx) => {
+                                  const strokeDash = `${item.percentage} ${100 - item.percentage}`;
+                                  const strokeOffset = -accumulatedPercent;
+                                  accumulatedPercent += item.percentage;
+                                  return (
+                                    <circle
+                                      key={item.id}
+                                      cx="50"
+                                      cy="50"
+                                      r="38"
+                                      fill="transparent"
+                                      stroke={item.color}
+                                      strokeWidth="14"
+                                      strokeDasharray={strokeDash}
+                                      strokeDashoffset={strokeOffset}
+                                      className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                                    >
+                                      <title>{`${item.name}: ${formatAmount(item.amount)} (${item.percentage}%)`}</title>
+                                    </circle>
+                                  );
+                                });
+                              })()}
+                            </svg>
+                            {/* Donut Center Label */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                              <span className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Total Expense
+                              </span>
+                              <span className={`text-lg sm:text-xl font-bold font-mono ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
+                                {formatAmount(metrics.expense)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Category Progress Bars & Percentages */}
+                        <div className="md:col-span-7 space-y-3">
+                          <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Spending by Category
+                          </h4>
+                          {categoryBreakdown.list.map(item => (
+                            <div key={item.id} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center space-x-2 font-medium">
+                                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
+                                  <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>{item.name}</span>
+                                </span>
+                                <span className="font-mono font-semibold">
+                                  {formatAmount(item.amount)} <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>({item.percentage}%)</span>
+                                </span>
+                              </div>
+                              <div className={`w-full rounded-full h-1.5 overflow-hidden ${
+                                isDark ? 'bg-slate-700/20' : 'bg-slate-100 border border-slate-200/50'
+                              }`}>
+                                <div
+                                  className="h-1.5 rounded-full transition-all duration-500"
+                                  style={{ width: `${item.percentage}%`, backgroundColor: item.color }}
+                                ></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Income vs Expense Comparison Bar Chart
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      
+                      {/* Income Bar */}
+                      <div className={`p-4 rounded-xl border ${
+                        isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+                      }`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className={`text-sm font-semibold flex items-center ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                            <i data-lucide="arrow-down-left" className="w-4 h-4 mr-1"></i> Total Inflow
+                          </span>
+                          <span className={`font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                            {formatAmount(metrics.income)}
+                          </span>
+                        </div>
+                        <div className={`w-full rounded-full h-3 overflow-hidden ${
+                          isDark ? 'bg-slate-700/30' : 'bg-slate-200/70'
+                        }`}>
+                          <div 
+                            className="bg-emerald-500 h-3 rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${metrics.income + metrics.expense > 0 ? (metrics.income / (metrics.income + metrics.expense)) * 100 : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Represents {metrics.income + metrics.expense > 0 ? Math.round((metrics.income / (metrics.income + metrics.expense)) * 100) : 0}% of all cash movement.
+                        </p>
+                      </div>
+
+                      {/* Expense Bar */}
+                      <div className={`p-4 rounded-xl border ${
+                        isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+                      }`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className={`text-sm font-semibold flex items-center ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
+                            <i data-lucide="arrow-up-right" className="w-4 h-4 mr-1"></i> Total Outflow
+                          </span>
+                          <span className={`font-mono font-bold ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
+                            {formatAmount(metrics.expense)}
+                          </span>
+                        </div>
+                        <div className={`w-full rounded-full h-3 overflow-hidden ${
+                          isDark ? 'bg-slate-700/30' : 'bg-slate-200/70'
+                        }`}>
+                          <div 
+                            className="bg-rose-500 h-3 rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${metrics.income + metrics.expense > 0 ? (metrics.expense / (metrics.income + metrics.expense)) * 100 : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Represents {metrics.income + metrics.expense > 0 ? Math.round((metrics.expense / (metrics.income + metrics.expense)) * 100) : 0}% of all cash movement.
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* --- CONTROLS, SEARCH & FILTER BAR --- */}
+            <div className={`p-4 rounded-2xl transition-all ${
+              isDark ? 'glass-card border border-slate-800 shadow-md' : 'glass-card-light'
+            }`}>
+              
+              <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <i data-lucide="search" className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                  <input
+                    type="text"
+                    placeholder="Search by title, note, or category..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-2 rounded-xl text-xs sm:text-sm border transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      isDark ? 'bg-slate-900/80 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:bg-white'
+                    }`}
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <i data-lucide="x" className="w-3.5 h-3.5"></i>
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Pills: Type */}
+                <div className={`flex rounded-xl p-1 border text-xs font-semibold self-start md:self-auto ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+                }`}>
+                  <button
+                    onClick={() => setTypeFilter('all')}
+                    className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                      typeFilter === 'all'
+                        ? isDark ? 'bg-indigo-600 text-white shadow' : 'bg-white text-indigo-700 shadow-sm font-bold border border-slate-200/60'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('income')}
+                    className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                      typeFilter === 'income'
+                        ? isDark ? 'bg-emerald-600 text-white shadow' : 'bg-white text-emerald-700 shadow-sm font-bold border border-slate-200/60'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Income
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('expense')}
+                    className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                      typeFilter === 'expense'
+                        ? isDark ? 'bg-rose-600 text-white shadow' : 'bg-white text-rose-700 shadow-sm font-bold border border-slate-200/60'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Expenses
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Secondary Filters row */}
+              <div className={`flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t text-xs ${
+                isDark ? 'border-slate-700/30' : 'border-slate-100'
+              }`}>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  
+                  {/* Category Dropdown */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Category:</span>
+                    <select
+                      value={categoryFilter}
+                      onChange={e => setCategoryFilter(e.target.value)}
+                      className={`px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium ${
+                        isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white'
+                      }`}
+                    >
+                      <option value="all">All Categories</option>
+                      <optgroup label="Expenses">
+                        {EXPENSE_CATEGORIES.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Income">
+                        {INCOME_CATEGORIES.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* Timeframe Filter */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Period:</span>
+                    <select
+                      value={timeFilter}
+                      onChange={e => setTimeFilter(e.target.value)}
+                      className={`px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium ${
+                        isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white'
+                      }`}
+                    >
+                      <option value="all">All Time</option>
+                      <option value="this_month">This Month</option>
+                      <option value="last_month">Last Month</option>
+                    </select>
+                  </div>
+
+                  {/* Sort By Dropdown */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Sort:</span>
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value)}
+                      className={`px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium ${
+                        isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white'
+                      }`}
+                    >
+                      <option value="date_desc">Date (Newest First)</option>
+                      <option value="date_asc">Date (Oldest First)</option>
+                      <option value="amount_desc">Amount (Highest First)</option>
+                      <option value="amount_asc">Amount (Lowest First)</option>
+                    </select>
+                  </div>
+
+                </div>
+
+                {/* Reset & Quick Actions */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleResetSample}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                    title="Reload preloaded mock transactions"
+                  >
+                    Reset Sample Data
+                  </button>
+                  <span className={isDark ? 'text-slate-600' : 'text-slate-300'}>•</span>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold"
+                    title="Wipe database"
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* --- TRANSACTION LIST TABLE / CARDS --- */}
+            <div className={`rounded-2xl transition-all overflow-hidden ${
+              isDark ? 'glass-card border border-slate-800 shadow-lg' : 'glass-card-light'
+            }`}>
+              
+              <div className={`p-4 sm:p-5 flex items-center justify-between border-b ${
+                isDark ? 'border-slate-700/40' : 'border-slate-100'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <h3 className={`font-bold text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Transactions
+                  </h3>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-medium ${
+                    isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700 border border-slate-200/60'
+                  }`}>
+                    {filteredTransactions.length}
+                  </span>
+                </div>
+                <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Showing {filteredTransactions.length} of {transactions.length}
+                </div>
+              </div>
+
+              {/* Transactions Items */}
+              {filteredTransactions.length === 0 ? (
+                <div className="py-16 text-center space-y-3">
+                  <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${
+                    isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    <i data-lucide="receipt" className="w-6 h-6"></i>
+                  </div>
+                  <h4 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    No transactions found
+                  </h4>
+                  <p className={`text-xs max-w-sm mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Try adjusting your search query, changing filters, or adding a new transaction.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setTypeFilter('all');
+                      setCategoryFilter('all');
+                      setTimeFilter('all');
+                    }}
+                    className="inline-flex items-center space-x-1 text-xs text-indigo-600 font-semibold hover:underline"
+                  >
+                    <span>Clear all active filters</span>
+                  </button>
+                </div>
+              ) : (
+                <div className={`divide-y ${isDark ? 'divide-slate-800/40' : 'divide-slate-100'}`}>
+                  {filteredTransactions.map(tx => {
+                    const catMeta = getCategoryMeta(tx.category, tx.type);
+                    const isIncome = tx.type === 'income';
+
+                    return (
+                      <div
+                        key={tx.id}
+                        className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                          isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'
+                        }`}
+                      >
+                        {/* Left: Icon & Details */}
+                        <div className="flex items-start sm:items-center space-x-3.5 flex-1 min-w-0">
+                          
+                          {/* Category Badge Icon */}
+                          <div className={`w-11 h-11 rounded-xl flex-shrink-0 flex items-center justify-center ${
+                            isDark ? catMeta.bgDark : catMeta.bgLight
+                          }`}>
+                            <i data-lucide={catMeta.icon || 'tag'} className="w-5 h-5"></i>
+                          </div>
+
+                          {/* Titles and Subtext */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h4 className={`text-sm sm:text-base font-semibold truncate ${
+                                isDark ? 'text-white' : 'text-slate-900'
+                              }`}>
+                                {tx.title}
+                              </h4>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                isDark ? catMeta.bgDark : catMeta.bgLight
+                              }`}>
+                                {catMeta.name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-3 mt-1 text-xs">
+                              <span className={`flex items-center space-x-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                <i data-lucide="calendar" className="w-3.5 h-3.5"></i>
+                                <span>{tx.date}</span>
+                              </span>
+                              {tx.notes && (
+                                <span className={`truncate max-w-[200px] sm:max-w-md italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                  "{tx.notes}"
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Right: Amount & Actions */}
+                        <div className="flex items-center justify-between sm:justify-end space-x-4 pl-14 sm:pl-0">
+                          
+                          {/* Formatted Amount */}
+                          <div className="text-right">
+                            <span className={`text-base sm:text-lg font-bold font-mono ${
+                              isIncome 
+                                ? (isDark ? 'text-emerald-400' : 'text-emerald-700') 
+                                : (isDark ? 'text-rose-400' : 'text-rose-700')
+                            }`}>
+                              {isIncome ? '+' : '-'}{formatAmount(tx.amount)}
+                            </span>
+                          </div>
+
+                          {/* Action Buttons: Edit & Delete */}
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => {
+                                setEditingTx(tx);
+                                setIsModalOpen(true);
+                              }}
+                              title="Edit transaction"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-700'
+                              }`}
+                            >
+                              <i data-lucide="edit-3" className="w-4 h-4"></i>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(tx.id)}
+                              title="Delete transaction"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isDark ? 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                              }`}
+                            >
+                              <i data-lucide="trash-2" className="w-4 h-4"></i>
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            </div>
+
+          </main>
+
+          {/* --- FOOTER --- */}
+          <footer className={`mt-auto border-t py-6 text-center text-xs transition-colors ${
+            isDark ? 'border-slate-800/80 text-slate-500' : 'border-slate-200 text-slate-400'
+          }`}>
+            <p>
+              ACM Web Development Recruitment Task 1 (Second Years) • Built with React & Tailwind CSS
+            </p>
+            <p className="mt-1 text-[11px] text-slate-600">
+              State synced with browser LocalStorage • Zero backend latency
+            </p>
+          </footer>
+
+          {/* --- ADD / EDIT TRANSACTION MODAL --- */}
+          {isModalOpen && (
+            <TransactionModal
+              isDark={isDark}
+              currency={currency}
+              initialData={editingTx}
+              onClose={() => {
+                setIsModalOpen(false);
+                setEditingTx(null);
+              }}
+              onSave={handleSaveTransaction}
+            />
+          )}
+
+          {/* --- TOAST NOTIFICATION --- */}
+          {toast && (
+            <div className="fixed bottom-6 right-6 z-50 flex items-center space-x-2 px-4 py-3 rounded-xl shadow-2xl bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm animate-bounce">
+              <i data-lucide={toast.type === 'error' ? "alert-circle" : "check-circle-2"} className={`w-4 h-4 ${
+                toast.type === 'error' ? 'text-rose-400' : 'text-emerald-400'
+              }`}></i>
+              <span>{toast.msg}</span>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // --- TRANSACTION MODAL COMPONENT ---
+    function TransactionModal({ isDark, currency, initialData, onClose, onSave }) {
+      const isEditing = Boolean(initialData);
+
+      const [type, setType] = useState(initialData?.type || 'expense');
+      const [title, setTitle] = useState(initialData?.title || '');
+      const [amount, setAmount] = useState(initialData?.amount || '');
+      const [category, setCategory] = useState(initialData?.category || (type === 'income' ? 'salary' : 'food'));
+      const [date, setDate] = useState(initialData?.date || new Date().toISOString().slice(0, 10));
+      const [notes, setNotes] = useState(initialData?.notes || '');
+      const [errors, setErrors] = useState({});
+
+      // Update default category when type toggles
+      const handleTypeChange = (newType) => {
+        setType(newType);
+        if (newType === 'income') {
+          setCategory('salary');
+        } else {
+          setCategory('food');
+        }
+      };
+
+      const validate = () => {
+        const errs = {};
+        if (!title.trim()) errs.title = 'Title is required';
+        if (!amount || isNaN(amount) || Number(amount) <= 0) {
+          errs.amount = 'Please enter a valid amount greater than 0';
+        }
+        if (!date) errs.date = 'Date is required';
+        setErrors(errs);
+        return Object.keys(errs).length === 0;
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!validate()) return;
+        onSave({
+          title: title.trim(),
+          amount: parseFloat(amount),
+          type,
+          category,
+          date,
+          notes: notes.trim()
+        });
+      };
+
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [type]);
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 transition-all ${
+            isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            
+            {/* Header */}
+            <div className={`flex items-center justify-between pb-4 border-b ${
+              isDark ? 'border-slate-700/40' : 'border-slate-100'
+            }`}>
+              <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {isEditing ? 'Edit Transaction' : 'Add New Transaction'}
+              </h3>
+              <button
+                onClick={onClose}
+                className={`p-1 rounded-lg transition-colors ${
+                  isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <i data-lucide="x" className="w-5 h-5"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs sm:text-sm">
+              
+              {/* Type Switcher */}
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                  isDark ? 'text-slate-400' : 'text-slate-600'
+                }`}>
+                  Transaction Type
+                </label>
+                <div className={`grid grid-cols-2 gap-2 p-1 rounded-xl border ${
+                  isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange('expense')}
+                    className={`py-2 rounded-lg font-semibold transition-all ${
+                      type === 'expense'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Expense
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange('income')}
+                    className={`py-2 rounded-lg font-semibold transition-all ${
+                      type === 'income'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Income
+                  </button>
+                </div>
+              </div>
+
+              {/* Title Input */}
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+                  isDark ? 'text-slate-400' : 'text-slate-600'
+                }`}>
+                  Title / Description *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Grocery Store, Laptop EMI, Salary"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    errors.title ? 'border-rose-500' : isDark ? 'bg-slate-800/80 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+                {errors.title && <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.title}</p>}
+              </div>
+
+              {/* Amount & Date in Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                
+                {/* Amount */}
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-600'
+                  }`}>
+                    Amount ({currency}) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      errors.amount ? 'border-rose-500' : isDark ? 'bg-slate-800/80 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                  {errors.amount && <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.amount}</p>}
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-600'
+                  }`}>
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      errors.date ? 'border-rose-500' : isDark ? 'bg-slate-800/80 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+              </div>
+
+              {/* Category Dropdown */}
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+                  isDark ? 'text-slate-400' : 'text-slate-600'
+                }`}>
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium ${
+                    isDark ? 'bg-slate-800/80 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                >
+                  {type === 'expense'
+                    ? EXPENSE_CATEGORIES.map(c => (
+                        <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
+                      ))
+                    : INCOME_CATEGORIES.map(c => (
+                        <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
+                      ))
+                  }
+                </select>
+              </div>
+
+              {/* Optional Notes */}
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
+                  isDark ? 'text-slate-400' : 'text-slate-600'
+                }`}>
+                  Notes (Optional)
+                </label>
+                <textarea
+                  rows="2"
+                  placeholder="Additional context or notes..."
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  className={`w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    isDark ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
+                  }`}
+                ></textarea>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className={`flex items-center justify-end space-x-3 pt-3 border-t ${
+                isDark ? 'border-slate-700/40' : 'border-slate-100'
+              }`}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+                    isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  {isEditing ? 'Save Changes' : 'Add Transaction'}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      );
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
