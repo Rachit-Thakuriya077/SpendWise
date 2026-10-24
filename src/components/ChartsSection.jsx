@@ -16,13 +16,6 @@ export const ChartsSection = () => {
         <div>
           <h3 className={`text-lg font-bold flex items-center space-x-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
             <span>📊 Financial Analytics & Insights</span>
-            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-              isDark 
-                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
-                : 'bg-indigo-50 text-indigo-700 border border-indigo-200/80'
-            }`}>
-              Bonus Feature
-            </span>
           </h3>
           <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             Category spending distribution and visual cashflow distribution

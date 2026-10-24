@@ -19,9 +19,6 @@ export const Header = () => {
             <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               SpendWise
             </span>
-            <span className="hidden sm:inline-block text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 tracking-wider">
-              React Pro
-            </span>
           </div>
         </div>
 
